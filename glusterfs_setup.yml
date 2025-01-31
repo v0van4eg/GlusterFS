@@ -1,0 +1,69 @@
+---
+- name: Install and configure GlusterFS
+  hosts: all
+  become: yes
+  vars:
+    brick_dir: "/GlusterData/brick1"
+    mount_point: "/mnt/gvolume"
+  tasks:
+    - name: Install GlusterFS packages
+      yum:
+        name:
+          - glusterfs-server
+          - glusterfs-fuse
+          - glusterfs-libs
+        state: present
+
+    - name: Start and enable GlusterFS service
+      systemd:
+        name: glusterd
+        state: started
+        enabled: yes
+
+    - name: Create GlusterFS brick directory
+      file:
+        path: "{{ brick_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Create GlusterFS mount point directory
+      file:
+        path: "{{ mount_point }}"
+        state: directory
+        mode: '0755'
+
+- name: Configure GlusterFS cluster
+  hosts: manager
+  become: yes
+  vars:
+    brick_dir: "/GlusterData/brick1"
+    mount_point: "/mnt/gvolume"
+    volume_name: "gvolume"
+  tasks:
+    - name: Peer probe other nodes in the cluster
+      gluster.gluster.gluster_peer:
+        state: present
+        nodes: "{{ groups['gnodes'] | difference([inventory_hostname]) }}"
+
+    - name: Create GlusterFS volume
+      gluster.gluster.gluster_volume:
+        name: "{{ volume_name }}"
+        state: present
+        replicas: 3
+        bricks: "{{ brick_dir }}"
+        cluster:
+          - redc1.gradient.ru
+          - redc2.gradient.ru
+          - redc3.gradient.ru
+        force: true
+      run_once: true
+      tags: volcreate
+
+    - name: Mount GlusterFS volume on all nodes
+      mount:
+        path: "{{ mount_point }}"
+        src: "{{ inventory_hostname }}:{{ volume_name }}"
+        fstype: glusterfs
+        state: mounted
+      delegate_to: "{{ item }}"
+      loop: "{{ groups['hosts'] }}"
