@@ -1,16 +1,16 @@
 [all:vars]
 ansible_python_interpreter=/usr/bin/python3
-ansible_ssh_password=qwe890@IOP
+ansible_ssh_password=passwd
 ansible_user=root
 
 [hosts]
-redc1.gradient.ru
-redc2.gradient.ru
-redc3.gradient.ru
+с1
+с2
+с3
 
 [manager]
-redc1.gradient.ru
+с1
 
 [gnodes]
-redc2.gradient.ru
-redc3.gradient.ru
+с2
+с3
