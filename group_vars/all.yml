@@ -1,0 +1,12 @@
+---
+# Глобальные переменные для всех узлов
+brick_dir: "/GlusterData/brick1"  # Директория для хранения данных GlusterFS (brick)
+mount_point: "/mnt/gvolume"       # Точка монтирования GlusterFS-тома
+volume_name: "gvolume"            # Имя тома GlusterFS
+gluster_packages:                 # Пакеты GlusterFS для установки
+  - glusterfs-server
+  - glusterfs-fuse
+  - glusterfs-libs
+glusterconfigs:
+  - "/var/lib/glusterd"
+  - "/etc/glusterfs"

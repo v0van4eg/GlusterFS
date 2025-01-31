@@ -1,69 +1,56 @@
 ---
-- name: Install and configure GlusterFS
-  hosts: all
-  become: yes
-  vars:
-    brick_dir: "/GlusterData/brick1"
-    mount_point: "/mnt/gvolume"
+- name: Установка и настройка GlusterFS
+  hosts: all                     # Применяется ко всем узлам
+  become: yes                    # Выполнение задач с правами root
   tasks:
-    - name: Install GlusterFS packages
+    - name: Установка пакетов GlusterFS
       yum:
-        name:
-          - glusterfs-server
-          - glusterfs-fuse
-          - glusterfs-libs
+        name: "{{ gluster_packages }}"  # Установка пакетов из переменной
         state: present
 
-    - name: Start and enable GlusterFS service
+    - name: Запуск и включение службы GlusterFS
       systemd:
-        name: glusterd
-        state: started
-        enabled: yes
+        name: glusterd           # Служба GlusterFS
+        state: started           # Запуск службы
+        enabled: yes             # Включение автозапуска при загрузке
 
-    - name: Create GlusterFS brick directory
+    - name: Создание директории для brick
       file:
-        path: "{{ brick_dir }}"
-        state: directory
-        mode: '0755'
+        path: "{{ brick_dir }}"  # Директория для хранения данных
+        state: directory         # Создание директории, если её нет
+        mode: '0755'             # Права доступа
 
-    - name: Create GlusterFS mount point directory
+    - name: Создание точки монтирования
       file:
-        path: "{{ mount_point }}"
-        state: directory
-        mode: '0755'
+        path: "{{ mount_point }}"  # Точка монтирования GlusterFS-тома
+        state: directory           # Создание директории, если её нет
+        mode: '0755'               # Права доступа
 
-- name: Configure GlusterFS cluster
-  hosts: manager
-  become: yes
-  vars:
-    brick_dir: "/GlusterData/brick1"
-    mount_point: "/mnt/gvolume"
-    volume_name: "gvolume"
+- name: Настройка кластера GlusterFS
+  hosts: manager                 # Применяется только к управляющему узлу
+  become: yes                    # Выполнение задач с правами root
   tasks:
-    - name: Peer probe other nodes in the cluster
+    - name: Добавление узлов в кластер (peer probe)
       gluster.gluster.gluster_peer:
         state: present
-        nodes: "{{ groups['gnodes'] | difference([inventory_hostname]) }}"
+        nodes: "{{ groups['gnodes'] | difference([inventory_hostname]) }}"  # Добавляем все узлы, кроме себя
 
-    - name: Create GlusterFS volume
+    - name: Создание тома GlusterFS
       gluster.gluster.gluster_volume:
-        name: "{{ volume_name }}"
-        state: present
-        replicas: 3
-        bricks: "{{ brick_dir }}"
-        cluster:
-          - redc1.gradient.ru
-          - redc2.gradient.ru
-          - redc3.gradient.ru
-        force: true
-      run_once: true
-      tags: volcreate
+        name: "{{ volume_name }}"  # Имя тома
+        state: present             # Создание тома
+        replicas: 3                # Репликация на 3 узла
+        bricks: "{{ brick_dir }}"  # Директория для хранения данных
+        cluster: "{{ groups['hosts'] }}"  # Узлы кластера из группы hosts
+        force: true                # Принудительное создание тома
+      run_once: true               # Задача выполняется только один раз
+      tags: volcreate              # Тег для выборочного запуска задачи
 
-    - name: Mount GlusterFS volume on all nodes
+    - name: Монтирование тома на всех узлах
       mount:
-        path: "{{ mount_point }}"
-        src: "{{ inventory_hostname }}:{{ volume_name }}"
-        fstype: glusterfs
-        state: mounted
-      delegate_to: "{{ item }}"
-      loop: "{{ groups['hosts'] }}"
+        path: "{{ mount_point }}"  # Точка монтирования
+        src: "{{ inventory_hostname }}:{{ volume_name }}"  # Источник монтирования (GlusterFS-том)
+        fstype: glusterfs          # Тип файловой системы
+        state: mounted             # Монтирование тома
+      delegate_to: "{{ item }}"    # Делегирование задачи на каждый узел
+      loop: "{{ groups['hosts'] }}"  # Цикл по всем узлам из группы hosts
